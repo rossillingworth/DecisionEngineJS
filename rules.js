@@ -13,115 +13,124 @@
  */
 
 
-var ruleEngine = function(){
+var decisionEngine = function(){
 
-    var patterns = [{
+    var rules = [{
         name:"exists",
-        regexPattern:/^(.*) exists$/,
+        regex:/^(.*) exists$/,
         func:function(data,name){
             var bool = !(data[name] == undefined);
             return bool;
         }
-    },{
-        name:"greater than",
-        regexPattern:/^(.*) > (.*)$/,
-        func:function(data,x,y){
-            var bool = data[x] > y;
-            return bool;
-        }
     }];
 
-    function registerPattern(name,regexPattern,func){
-        patterns.push({
+    function register(name,regex,func){
+        rules.push({
             name:name,
-            regexPattern:regexPattern,
+            regex:regex,
             func:func
         });
     }
 
-    function runRule(rule,dataString){
-        var lines = rule.split("\n");
-        var data = JSON.parse(dataString);
-        console.log("RULE Lines",lines);
-        console.log("DATA",data);
-        runLines(lines,data);
+    function validate(rules,data){
+        var lines = rules.split("\n");
+
+        //console.log("RULE Lines",lines);
+        //console.log("DATA",data);
+
+        return parse(lines,data);
     }
 
-    function runLines(lines,data,currentIndent){
+    function parse(lines,data,currentIndent){
         var result = 1;
         var processed = 0;
         currentIndent = currentIndent || 0;
 
         while(lines.length > 0){
-            var line = lines.shift();
-            var indent = numberOfTabs(line);
+            var indent = numberOfChar(lines[0]," ");
+
+            // indent increased, so recurse to group results
+            if(indent > currentIndent){
+                result = processed && result && parse(lines,data,indent);
+            }
+
+            // indent reduced: return current state
+            if(indent < currentIndent){
+                return processed && result;
+            }
+
             if(indent == currentIndent){
+                var line = lines.shift();
                 line = line.trim();
 
                 switch (line){
                     case "WHEN":
-                        //result = 0;
+                        result = parse(lines,data,indent + 1);
+                        processed = 1;
                         break;
                     case "OR":
-                        //result = 0;
+                        if(processed && result) return (processed && result);
+                        result = 1;
+                        processed = 0;
                         break;
                     case "THEN":
-                        console.log("THEN",result);
-                        //result = 0;
+                        // this allows us to override result
+                        return result && parse(lines, data, currentIndent + 1);
+                        break;
+                    case "END":
+                        return processed && result;
                         break;
                     case "":
                         break
                     default:
-                        processed = 1;
-                        var r = processLine(line,data);
-                        result = result && r;
+                        if(line.charAt(0)!="#"){
+                            var r = processLine(line,data);
+                            processed = 1;
+                            result = result && r;
+                        }
                 }
             }
-            if(indent > currentIndent){
-                lines.unshift(line);
-                console.log(">>>>>>>");
-                result = result && runLines(lines,data,indent);
-                console.log("<<<<<<<");
-            }
-            if(indent < currentIndent){
-                lines.unshift(line);
-                return result && processed;
-            }
+
         }
+        return processed && result;
     }
 
-    function processLine(lineString,data){
-        var tuple = findFuncForDSL(lineString);
-        var params = tuple.regexPattern.exec(lineString);
-        params.shift();
-        params.unshift(data);
-        var result = tuple.func.apply(null,params);
-        console.log("INFO",tuple,params,result);
+    function processLine(input,data){
+        var rule = identifyRule(input);
+        var params = makeParameters(rule, input, data);
+        var result = rule.func.apply(null,params);
+        console.log("Running:",params,result);
         return result;
     }
 
-    function findFuncForDSL(dslString){
-        var pattern = patterns.filter(function(p){
-            return p.regexPattern.test(dslString);
+    function identifyRule(input){
+        var results = rules.filter(function(rule){
+            return rule.regex.test(input);
         });
-        console.log("String",dslString);
-        console.log("Pattern",pattern[0]);
-
-        return pattern[0];
+        console.log("Rule Match:", input, results[0]);
+        // error if more that 1 match ?
+        return results[0];
     }
 
-    function numberOfTabs(text) {
+
+    function makeParameters(rule, input, data){
+        var params = rule.regex.exec(input);
+        params.splice(0,1,data);
+        return params;
+    }
+
+    function numberOfChar(text,char) {
         var count = 0;
         var index = 0;
-        while (text.charAt(index++) === "\t") {
+        while (text.charAt(index++) == char) {
             count++;
         }
         return count;
     }
 
     return {
-        registerPattern:registerPattern,
-        run:runRule
+        registerRuleFunction:register,
+        validate:validate
     }
 }();
 
