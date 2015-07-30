@@ -1,0 +1,55 @@
+<html>
+
+<head>
+
+    <script src="rules.js"></script>
+
+</head>
+
+<body>
+
+<h3>RULE</h3>
+<textarea id="rule" cols="80" rows="10">
+    WHEN
+        myField exists
+        myField > 20
+    THEN
+        sayHello
+</textarea>
+<br/>
+
+<h3>DATA</h3>
+<textarea id="data" cols="80" rows="10">
+    {
+        myField:21
+    }
+</textarea>
+<br/>
+
+<input type="button" value="GO" onclick="run()">
+<br/>
+<br/>
+
+<textarea id="output" cols="80" rows="10">
+    output will go here
+</textarea>
+
+
+<script>
+
+    function run(){
+
+        var rule = document.getElementById("rule").value;
+        var data = document.getElementById("data").value;
+        var output = document.getElementById("output");
+
+        var result = ruleEngine.run(rule,data);
+        output.value = result;
+
+    }
+
+</script>
+
+</body>
+
+</html>
