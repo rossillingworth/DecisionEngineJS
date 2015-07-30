@@ -17,9 +17,10 @@ var decisionEngine = function(){
 
     var rules = [{
         name:"exists",
-        regex:/^(.*) exists$/,
-        func:function(data,name){
+        regex:/^(.*)( not)? exists$/,
+        func:function(data,name,not){
             var bool = !(data[name] == undefined);
+            bool = not?!bool:bool;
             return bool;
         }
     }];

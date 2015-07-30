@@ -15,6 +15,24 @@
         );
 
         decisionEngine.registerRuleFunction(
+                "less than",
+                /^(.*) \< (.*)$/,
+                function(data,x,y){
+                    var bool = data[x] < y;
+                    return bool;
+                }
+        );
+
+        decisionEngine.registerRuleFunction(
+                "equals",
+                /^(.*) equals (.*)$/,
+                function(data,x,y){
+                    var bool = data[x] == y;
+                    return bool;
+                }
+        );
+
+        decisionEngine.registerRuleFunction(
                 "sayHello",
                 /^sayHello$/,
                 function(data){
@@ -27,23 +45,32 @@
 
 <body>
 
-<h3>RULE</h3>
-<textarea id="rule" cols="80" rows="10">
+<h3>Decision Rules</h3>
+<textarea id="rule" cols="80" rows="17">
 WHEN
  myField exists
- myField > 20
-END
+ myField3 not exists
+ myField > 30
+ OR
+ myField < 100
+  myField equals 20
+  OR
+  myField equals 21
+ myField2 equals foo
+#END
 
-# remove end to run THEN
+# remove END to run function in THEN
 THEN
  sayHello
+
 </textarea>
 <br/>
 
 <h3>DATA</h3>
-<textarea id="data" cols="80" rows="10">
+<textarea id="data" cols="80" rows="5">
 {
- "myField":21
+ "myField":21,
+ "myField2":"foo"
 }
 </textarea>
 <br/>
