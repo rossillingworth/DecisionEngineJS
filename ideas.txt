@@ -1,0 +1,39 @@
+
+Current processing is rather inefficient
+
+if a rule-set has 8 features
+and we have 50 features in the bank,
+then every time we process it, we do 400 regex tests
+
+better to parse the rule set and construct named function calls with fixed params
+that way, we only parse it once
+can then call the complete function once.
+if we have 100 rulesets registered, then we only have 100 functions
+
+
+{
+    and:[
+        {},
+        {},
+        {or:[{},{},{}]},
+        {or:[{and:[{},{}]},{}]}
+    ]
+}
+
+
+
+Dynamically create function
+----------------------------
+
+new Function(data){
+    return (
+        steps[name].apply(null,data,params)
+        &&
+        steps[name].apply(null,data,params)
+        && (
+            steps[name].apply(null,data,params)
+            ||
+            steps[name].apply(null,data,params)
+        }
+    );
+}

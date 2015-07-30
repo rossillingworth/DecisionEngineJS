@@ -3,26 +3,48 @@
 <head>
 
     <script src="rules.js"></script>
+    <script>
 
+        decisionEngine.registerRuleFunction(
+                "greater than",
+                /^(.*) > (.*)$/,
+                function(data,x,y){
+                    var bool = data[x] > y;
+                    return bool;
+                }
+        );
+
+        decisionEngine.registerRuleFunction(
+                "sayHello",
+                /^sayHello$/,
+                function(data){
+                    return "H-E-L-L-O";
+                }
+        );
+
+    </script>
 </head>
 
 <body>
 
 <h3>RULE</h3>
 <textarea id="rule" cols="80" rows="10">
-    WHEN
-        myField exists
-        myField > 20
-    THEN
-        sayHello
+WHEN
+ myField exists
+ myField > 20
+END
+
+# remove end to run THEN
+THEN
+ sayHello
 </textarea>
 <br/>
 
 <h3>DATA</h3>
 <textarea id="data" cols="80" rows="10">
-    {
-        myField:21
-    }
+{
+ "myField":21
+}
 </textarea>
 <br/>
 
@@ -39,11 +61,12 @@
 
     function run(){
 
-        var rule = document.getElementById("rule").value;
-        var data = document.getElementById("data").value;
+        var trigger = document.getElementById("rule").value;
+        var dataStr = document.getElementById("data").value;
         var output = document.getElementById("output");
 
-        var result = ruleEngine.run(rule,data);
+        data = JSON.parse(dataStr);
+        var result = decisionEngine.validate(trigger,data);
         output.value = result;
 
     }
