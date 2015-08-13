@@ -1,4 +1,10 @@
 
+/**
+ * A rule is composed of a set of conditions (& boolean logic)
+ * If the conditions for the rule evaluate as true, the Rule passes (returns true)
+ *
+ * ie: when all the condition are correct, the rule evaluates to TRUE
+ */
 
 // parse rules
 // if THEN, run it and return response
@@ -15,26 +21,131 @@
 
 var decisionEngine = function(){
 
-    var rules = [{
-        name:"exists",
-        regex:/^(.*)( not)? exists$/,
-        func:function(data,name,not){
-            var bool = !(data[name] == undefined);
-            bool = not?!bool:bool;
-            return bool;
+    var conditions = {
+        "exists":{
+            name:"exists",
+            regex:/^(\w*)( not)? exists$/,
+            func:function(data,name,not){
+                var bool = !(data[name] == undefined);
+                bool = not?!bool:bool;
+                return bool;
+            }
         }
-    }];
+    };
 
-    function register(name,regex,func){
-        rules.push({
+    var rules = [{}];
+
+    function registerCondition(name,regex,func){
+        conditions[name] = {
             name:name,
             regex:regex,
             func:func
+        };
+    }
+
+    function registerRule(name,queueName,func){
+        var compiledFuncString = compileRuleSetFunction(func);
+
+        rules.push({
+            name:name,
+            regex:queueName,
+            func:func,
+            compiledFunc:null
         });
     }
 
-    function validate(rules,data){
-        var lines = rules.split("\n");
+    function compileRuleSetFunction(func){
+        var output = ["function(data){"];
+        var lines = func.split("\n");
+        var currentIndent = 0;
+        var endLoop = false;
+        var thenUsed = false;
+
+        debugger;
+
+        lines.forEach(function(line){
+
+            debugger;
+
+            if(endLoop)return;
+
+            // handle brackets open/close first
+            var indent = numberOfChar(line," ");
+            if(indent != currentIndent){
+                while(indent > currentIndent){
+                    currentIndent++;
+                    output.push("(");
+                }
+                while(indent < currentIndent){
+                    currentIndent--;
+                    if(output[output.length-1] == "&&")output.pop();
+                    output.push(")");
+                    output.push("&&");
+                }
+            }
+
+            // now handle contents
+
+            line = line.trim();
+            switch (line){
+                case "WHEN":
+                    output.push("if(")
+                    break;
+                case "AND":
+                    output.push("&&")
+                    break;
+                case "OR":
+                    if(output[output.length-1] == "&&")output.pop();
+                    output.push("||")
+                    break;
+                case "THEN":
+                    if(output[output.length-1] == "&&")output.pop();
+                    output.push("){ return")
+                    thenUsed = true;
+                    break;
+                case "END":
+                    if(output[output.length-1] == "&&")output.pop();
+                    output.push("){return true;}");
+                    endLoop = true;
+                    break;
+                case "":
+                    break
+                default:
+                    if(line.charAt(0)!="#"){
+                        // get ruleName && params
+                        var ruleName = identifyRuleName(line);
+                        var params = extractParameters(conditions[ruleName],line);
+                        var s = "conditions['"+ruleName+"'].call(null,data,"+ paramsToStrings(params).toString()+")";
+                        output.push(s)
+                        output.push("&&");
+                    }
+
+            }
+
+        });
+
+        if(output[output.length-1] == "&&")output.pop();
+
+        // add } to finish then
+        if(thenUsed)output.push("}");
+        // close function
+        output.push("}");
+
+        console.log(output);
+        console.log(output.join("\n"));
+
+        return output.join(" ");
+
+    }
+
+    function paramsToStrings(params){
+        return params.map(function(param){
+            return "'" + param + "'";
+        });
+    }
+
+    function validate(ruleSet,data){
+        var lines = ruleSet.split("\n");
 
         //console.log("RULE Lines",lines);
         //console.log("DATA",data);
@@ -47,12 +158,14 @@ var decisionEngine = function(){
         var processed = 0;
         currentIndent = currentIndent || 0;
 
+        debugger;
+
         while(lines.length > 0){
             var indent = numberOfChar(lines[0]," ");
 
             // indent increased, so recurse to group results
             if(indent > currentIndent){
-                result = processed && result && parse(lines,data,indent);
+                result = parse(lines,data,indent) && processed && result;
             }
 
             // indent reduced: return current state
@@ -68,6 +181,8 @@ var decisionEngine = function(){
                     case "WHEN":
                         result = parse(lines,data,indent + 1);
                         processed = 1;
+                        break;
+                    case "AND":
                         break;
                     case "OR":
                         if(processed && result) return (processed && result);
@@ -97,28 +212,35 @@ var decisionEngine = function(){
     }
 
     function processLine(input,data){
-        var rule = identifyRule(input);
-        var params = makeParameters(rule, input, data);
-        var result = rule.func.apply(null,params);
-        console.log("Running:",params,result);
+        var ruleName = identifyRuleName(input);
+        var rule = conditions[ruleName];
+        var params = extractParameters(rule, input);
+        console.log("Calling:",ruleName,"with:",params);
+        var result = rule.func.apply(null,[data].concat(params));
+        console.log("Result:",result);
         return result;
     }
 
-    function identifyRule(input){
-        var results = rules.filter(function(rule){
-            return rule.regex.test(input);
-        });
-        console.log("Rule Match:", input, results[0]);
-        // error if more that 1 match ?
-        return results[0];
+    function identifyRuleName(input){
+        for(propName in conditions){
+            if(conditions.hasOwnProperty(propName)){
+                if(conditions[propName].regex != undefined && conditions[propName].func != undefined){
+                    if(conditions[propName].regex.test(input)){
+                        console.log("Rule Match:", input, conditions[propName]);
+                        return propName;
+                    }
+                }
+            }
+        }
     }
 
 
-    function makeParameters(rule, input, data){
+    function extractParameters(rule, input){
         var params = rule.regex.exec(input);
-        params.splice(0,1,data);
+        params.splice(0,1);
         return params;
     }
+
 
     function numberOfChar(text,char) {
         var count = 0;
@@ -129,9 +251,16 @@ var decisionEngine = function(){
         return count;
     }
 
+    function runRule(name,data){
+
+    }
+
     return {
-        registerRuleFunction:register,
-        validate:validate
+        registerRuleFunction:registerCondition,
+        registerRuleSet:registerRule,
+        validate:validate,
+        runRule:runRule,
+        runRules:runRules
     }
 }();
 
@@ -157,3 +286,30 @@ var decisionEngine = function(){
 // if one matches: extract params, run function with params
 // capture result
 // result && new result
+
+
+//function(data){
+//    if(
+//        (
+//            rules['exists'].call(null,data,'myField','undefined')
+//            &&
+//            rules['exists'].call(null,data,'myField3',' not')
+//            &&
+//            rules['greaterThan'].call(null,data,'myField','30')
+//            ||
+//            rules['lessThan'].call(null,data,'myField','100')
+//            &&
+//            (
+//                rules['equals'].call(null,data,'myField','20')
+//                ||
+//                rules['equals'].call(null,data,'myField','21')
+//            )
+//            &&
+//            rules['equals'].call(null,data,'myField2','foo')
+//        )
+//    ){ return
+//        (
+//            rules['sayHello'].call(null,data,)
+//        )
+//    }
+//}

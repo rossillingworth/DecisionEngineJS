@@ -6,7 +6,7 @@
     <script>
 
         decisionEngine.registerRuleFunction(
-                "greater than",
+                "greaterThan",
                 /^(.*) > (.*)$/,
                 function(data,x,y){
                     var bool = data[x] > y;
@@ -15,7 +15,7 @@
         );
 
         decisionEngine.registerRuleFunction(
-                "less than",
+                "lessThan",
                 /^(.*) \< (.*)$/,
                 function(data,x,y){
                     var bool = data[x] < y;
@@ -76,6 +76,7 @@ THEN
 <br/>
 
 <input type="button" value="GO" onclick="run()">
+<input type="button" value="GO-2" onclick="registerRuleSet()">
 <br/>
 <br/>
 
@@ -88,13 +89,29 @@ THEN
 
     function run(){
 
-        var trigger = document.getElementById("rule").value;
+        var ruleSet = document.getElementById("rule").value;
         var dataStr = document.getElementById("data").value;
         var output = document.getElementById("output");
 
         data = JSON.parse(dataStr);
-        var result = decisionEngine.validate(trigger,data);
+        var result = decisionEngine.validate(ruleSet,data);
         output.value = result;
+
+    }
+
+    function registerRuleSet(){
+
+        var ruleSet = document.getElementById("rule").value;
+        var dataStr = document.getElementById("data").value;
+        var output = document.getElementById("output");
+
+        data = JSON.parse(dataStr);
+        var result = decisionEngine.registerRuleSet("name","queueName",ruleSet);
+        output.value = result;
+
+        var result  = decisionEngine.runRule(data,"name");
+        var results = decisionEngine.runRules(data); // [name, ...] names of all TRUE responses
+
 
     }
 
